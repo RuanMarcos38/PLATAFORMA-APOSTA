@@ -1,0 +1,25 @@
+name: Production V2 CI
+on:
+  push:
+    branches: [main, production-real-v2]
+    paths: ['production/**']
+  pull_request:
+    paths: ['production/**']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
+    defaults:
+      run:
+        working-directory: production/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: production/${{ matrix.app }}/package.json
+      - run: npm install
+      - run: npm run build

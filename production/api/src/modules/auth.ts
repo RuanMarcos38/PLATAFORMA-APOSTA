@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import crypto from 'node:crypto';
+import { z } from 'zod';
+import { pool, tx } from '../config/db.js';
+import { env } from '../config/env.js';
+import { requireAuth, type AuthRequest } from '../middleware/auth.js';
+const r=Router();
+const reg=z.object({email:z.string().email().transform(v=>v.toLowerCase()),phone:z.string().min(10),password:z.string().min(10).max(128),fullName:z.string().min(3),birthDate:z.string().date(),cpf:z.string().regex(/^\d{11}$/)});
+function age(d:string){const b=new Date(`${d}T12:00:00Z`),n=new Date();let a=n.getUTCFullYear()-b.getUTCFullYear();if(n.getUTCMonth()<b.getUTCMonth()||(n.getUTCMonth()===b.getUTCMonth()&&n.getUTCDate()<b.getUTCDate()))a--;return a}
+function tokens(user:{id:string;role:string},sid:string){const accessToken=jwt.sign({sub:user.id,role:user.role,sid},env.JWT_ACCESS_SECRET,{expiresIn:env.JWT_ACCESS_EXPIRES_IN as any});const refreshToken=jwt.sign({sub:user.id,role:user.role,sid,jti:crypto.randomUUID()},env.JWT_REFRESH_SECRET,{expiresIn:env.JWT_REFRESH_EXPIRES_IN as any});return{accessToken,refreshToken}}
+r.post('/register',async(req,res)=>{try{const p=reg.parse(req.body);if(age(p.birthDate)<18)return res.status(400).json({error:'minimum_age_18'});const hash=await bcrypt.hash(p.password,12);const out=await tx(async c=>{const u=await c.query(`INSERT INTO users(email,phone,password_hash,full_name,birth_date,cpf_hash,role,status) VALUES($1,$2,$3,$4,$5,encode(digest($6,'sha256'),'hex'),'user','pending_kyc') RETURNING id,role`,[p.email,p.phone,hash,p.fullName,p.birthDate,p.cpf]);await c.query(`INSERT INTO wallets(user_id,currency) VALUES($1,'BRL')`,[u.rows[0].id]);await c.query(`INSERT INTO responsible_limits(user_id,max_stake,daily_deposit_limit,weekly_deposit_limit) VALUES($1,1000,5000,15000)`,[u.rows[0].id]);const sid=crypto.randomUUID();await c.query(`INSERT INTO sessions(id,user_id,user_agent,ip,expires_at) VALUES($1,$2,$3,$4,now()+interval '30 days')`,[sid,u.rows[0].id,req.get('user-agent')||'',req.ip]);return{user:u.rows[0],sid};});res.status(201).json(tokens(out.user,out.sid));}catch(e:any){res.status(400).json({error:e?.code==='23505'?'account_already_exists':'invalid_registration'});}});
+r.post('/login',async(req,res)=>{const email=String(req.body?.email||'').toLowerCase(),password=String(req.body?.password||'');const q=await pool.query(`SELECT id,role,status,password_hash FROM users WHERE email=$1`,[email]);const u=q.rows[0];if(!u||!(await bcrypt.compare(password,u.password_hash)))return res.status(401).json({error:'invalid_credentials'});if(['suspended','banned','self_excluded'].includes(u.status))return res.status(403).json({error:'account_restricted'});const sid=crypto.randomUUID();await pool.query(`INSERT INTO sessions(id,user_id,user_agent,ip,expires_at) VALUES($1,$2,$3,$4,now()+interval '30 days')`,[sid,u.id,req.get('user-agent')||'',req.ip]);res.json(tokens(u,sid));});
+r.get('/me',requireAuth,async(req:AuthRequest,res)=>{const q=await pool.query(`SELECT id,email,phone,full_name,birth_date,role,status,kyc_status,created_at FROM users WHERE id=$1`,[req.user!.id]);res.json(q.rows[0]);});
+export default r;
