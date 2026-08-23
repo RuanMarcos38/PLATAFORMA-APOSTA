@@ -1,56 +1,69 @@
-# PLATAFORMA-APOSTA — Production V3
+# PLATAFORMA-APOSTA — Production
 
-Versão de produção construída a partir do material `plataforma-apostas-projeto-completo.zip` e da Production V2 já integrada no repositório.
+Base de produção da plataforma. O software é **fail-closed**: ausência de licença, domínio ou credenciais obrigatórias nunca é convertida em saldo, aposta ou jogo real simulado.
 
-## Status
-O código fica pronto para receber credenciais reais sem uso de saldo DEMO. Funcionalidades externas permanecem **fail-closed**: se um provedor não estiver configurado, a API retorna `503 provider_not_configured` em vez de simular sucesso.
+## Estado do software
 
-## Incluído
-- Frontend Next.js responsivo com UX sportsbook/cassino de identidade própria, inspirada em padrões do mercado.
-- Cadastro 18+, login, access token curto e refresh token rotativo em cookie HttpOnly.
-- CPF armazenado somente como hash com pepper configurável.
-- KYC externo com callback assinado e liberação de conta somente após aprovação.
-- Carteira BRL com ledger, saldo disponível e saldo retido.
-- PIX com criação via provedor e crédito apenas após webhook assinado + consulta ao pagamento.
-- Webhook idempotente e proteção contra crédito duplicado.
-- Solicitação de saque com retenção de saldo e fila administrativa.
-- Feed esportivo, sincronização, odds server-side e revalidação no momento da aposta.
-- Settlement idempotente de apostas esportivas.
-- Agregador de cassino certificado por adapter; sem RNG interno usado como cassino real.
-- Limites de aposta/depósito e autoexclusão aplicada no backend.
-- Painel administrativo e trilha de auditoria.
-- Health/readiness endpoints com status de banco, provedores e gate de dinheiro real.
-- PostgreSQL, Docker Compose e CI de build.
+- Frontend Next.js responsivo para sportsbook, cassino, cassino ao vivo, carteira, KYC, conta, jogo responsável e administração.
+- Cadastro 18+, access token curto, refresh rotativo HttpOnly e bloqueio de renovação para contas suspensas/banidas.
+- CPF armazenado como hash com pepper.
+- KYC obrigatório para operação real, callback assinado e ativação somente após aprovação.
+- Carteira BRL com ledger transacional, saldo disponível/retido, `FOR UPDATE` e idempotência.
+- Mercado Pago Checkout Pro com Preferences API, Wallet Brick, `back_urls`, webhook `x-signature`, consulta server-to-server, validação de valor/moeda e isolamento de testes.
+- PIX direto disponível somente no ambiente real liberado; Checkout Pro pode oferecer PIX conforme a aplicação do Mercado Pago.
+- Saques com retenção de saldo, fila operacional, auditoria e mutações financeiras restritas a `admin`.
+- Feed esportivo, odds revalidadas no servidor, idempotência de aposta e settlement.
+- Cassino via agregador externo; sem RNG interno usado como cassino real.
+- Limites de aposta/depósito, autoexclusão e limite de tempo de sessão aplicados no backend para sportsbook/cassino.
+- `/api/system/capabilities`, `/health` e `/readiness` para separar software implementado de ativação externa.
+- PostgreSQL com schema idempotente aplicado antes da inicialização da API.
+- Docker Compose sem senha padrão, containers da aplicação em usuário não-root, healthchecks e restart policy.
+- CI com audit de dependências, build API/web, validação do Compose e build das imagens Docker.
 
-## Gate de dinheiro real
-`ENABLE_REAL_MONEY=true` sozinho **não** habilita operação. O endpoint `/api/system/readiness` só marca o gate como habilitado quando os requisitos configurados estiverem presentes.
+## Pré-domínio
 
-Para o cenário federal brasileiro, mantenha `REQUIRE_FEDERAL_LICENSE=true`; assim o gate também exige identidade jurídica, referência de autorização e domínio `.bet.br`.
+O domínio oficial pode ficar para a última etapa. Enquanto `PUBLIC_DOMAIN` e `PAYMENT_WEBHOOK_URL` estiverem vazios:
+
+- KYC deriva o callback do host HTTPS atual da API.
+- Mercado Pago deriva o webhook do host HTTPS atual da API.
+- `ENABLE_REAL_MONEY=false` mantém qualquer operação real bloqueada.
+
+Veja `docs/PRE_DOMAIN_READINESS.md`.
 
 ## Subida
+
 ```bash
 cp .env.example .env
-# preencher apenas quando as credenciais oficiais forem obtidas
-docker compose up --build
+node scripts/generate-secrets.mjs
+# salve o output somente no gerenciador de secrets/variáveis do ambiente
+node scripts/check-credentials.mjs pre-domain
+docker compose up --build -d
 ```
 
-## Endpoints principais
-- `GET /api/system/health`
-- `GET /api/system/readiness`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `GET /api/kyc/status`
-- `POST /api/kyc/start`
-- `POST /api/payments/pix/deposit`
-- `POST /api/payments/webhook/mercadopago`
-- `POST /api/payments/withdrawals`
-- `GET /api/sports/events`
-- `POST /api/sports/bets`
-- `POST /api/sports/bets/:id/settle`
-- `GET /api/casino/games`
-- `POST /api/casino/launch`
-- `GET /api/admin/dashboard`
+Depois da subida:
 
-## Pendente somente de configuração externa
-Veja `docs/CREDENTIALS_PENDING.md`.
+```text
+GET /api/system/health
+GET /api/system/capabilities
+GET /api/system/readiness
+```
+
+Para promover uma conta já cadastrada a administrador no container da API:
+
+```bash
+ADMIN_EMAIL=seu-email npm run admin:promote
+```
+
+## Go-live
+
+O domínio/licença e as credenciais de produção são ativação externa. Antes de dinheiro real:
+
+```bash
+node scripts/check-credentials.mjs go-live
+```
+
+O `/api/system/readiness` precisa confirmar os gates aplicáveis antes de `ENABLE_REAL_MONEY=true`.
+
+## Segurança
+
+Nunca grave `.env`, tokens ou secrets no GitHub. Credenciais que tenham aparecido em print, chat, log ou gravação de tela devem ser rotacionadas antes do uso.
