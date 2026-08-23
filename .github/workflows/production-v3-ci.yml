@@ -22,4 +22,5 @@ jobs:
           cache: npm
           cache-dependency-path: production/${{ matrix.app }}/package.json
       - run: npm install
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run build
