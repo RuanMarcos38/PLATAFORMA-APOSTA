@@ -41,6 +41,11 @@ export const sportsProvider={
     if(env.SPORTS_PROVIDER==='custom'){return jsonFetch(`${env.SPORTS_DATA_BASE_URL}/odds?sport=${encodeURIComponent(sportKey)}&regions=${encodeURIComponent(env.SPORTS_DEFAULT_REGIONS)}&markets=${encodeURIComponent(env.SPORTS_DEFAULT_MARKETS)}`,{headers:{authorization:`Bearer ${env.SPORTS_DATA_API_KEY}`}});}
     const u=new URL(`${env.SPORTS_DATA_BASE_URL}/sports/${sportKey}/odds`);u.searchParams.set('apiKey',env.SPORTS_DATA_API_KEY);u.searchParams.set('regions',env.SPORTS_DEFAULT_REGIONS);u.searchParams.set('markets',env.SPORTS_DEFAULT_MARKETS);u.searchParams.set('oddsFormat','decimal');
     return jsonFetch(u.toString());
+  },
+  async listScores(sportKey='soccer_brazil_campeonato'){
+    if(!env.SPORTS_DATA_API_KEY) throw new HttpError(503,'Credencial do feed esportivo pendente.','provider_not_configured');
+    if(env.SPORTS_PROVIDER==='custom'){return jsonFetch(`${env.SPORTS_DATA_BASE_URL}/scores?sport=${encodeURIComponent(sportKey)}`,{headers:{authorization:`Bearer ${env.SPORTS_DATA_API_KEY}`}});}
+    const u=new URL(`${env.SPORTS_DATA_BASE_URL}/sports/${sportKey}/scores`);u.searchParams.set('apiKey',env.SPORTS_DATA_API_KEY);u.searchParams.set('daysFrom','3');return jsonFetch(u.toString());
   }
 };
 
