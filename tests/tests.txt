@@ -1,0 +1,61 @@
+# Tests
+
+## Test 1 - Entrar, ativar carteira e registrar aposta esportiva [sanity]
+Viewport: desktop
+Covers: autenticação multiusuário, GET /api/catalog, GET /api/me, GET /api/ops/summary, POST /api/sports/bets, carteira DEMO, extrato e persistência
+Description: Verifica o fluxo principal com login, crédito demonstrativo isolado, aposta esportiva e atualização durável do saldo.
+
+Steps:
+1. Entrar com uma identidade de teste e confirmar que o saldo DEMO inicial é exibido
+2. Abrir Esportes e apostar R$ 25,00 DEMO em uma seleção disponível
+3. Abrir Carteira e atualizar a página
+
+Expected: O saldo é reduzido em R$ 25,00, a transação esportiva aparece no extrato e o estado permanece após atualizar.
+
+## Test 2 - Jogar Fortune Dice e manter prova criptográfica
+Viewport: desktop
+Covers: POST /api/casino/play, RNG criptográfico, histórico de rodadas, carteira e payout DEMO
+Description: Verifica uma rodada demonstrativa de cassino com resultado persistido e reflexo no saldo.
+
+Steps:
+1. Estando autenticado, abrir Fortune
+2. Jogar uma rodada com stake DEMO de R$ 25,00
+3. Confirmar que a rodada aparece em Últimas rodadas e abrir Carteira
+
+Expected: A rodada mostra um roll numérico, o saldo reflete aposta e eventual prêmio, e o extrato registra a operação.
+
+## Test 3 - Comprar posição Sim/Não e atualizar probabilidade
+Viewport: desktop
+Covers: GET /api/catalog, POST /api/prediction/positions, banco de posições, precificação por volume e realtime de prediction
+Description: Verifica a compra de uma posição e a atualização observável do preço implícito do mercado.
+
+Steps:
+1. Estando autenticado, abrir Mercados e anotar o percentual SIM de um mercado
+2. Comprar SIM com stake DEMO de R$ 25,00
+3. Permanecer na tela e observar o mercado após a atualização realtime
+
+Expected: A posição é registrada, o saldo diminui e o percentual SIM do mercado é atualizado de acordo com o novo volume.
+
+## Test 4 - Criar disputa e receber participação de outro usuário
+Viewport: desktop
+Covers: GET /api/disputes, POST /api/disputes, POST /api/disputes/:id/join, P2P, realtime multiator e carteira isolada
+Description: Verifica criação de disputa por um usuário e entrada de um segundo usuário sem misturar carteiras.
+
+Steps:
+1. Actor A entra, cria uma disputa com título "Meta comercial setembro", regras claras, mínimo R$ 10 e prazo futuro
+2. Actor B entra em outra sessão, abre Disputas P2P e participa A favor com R$ 25,00 DEMO
+3. Actor A mantém a tela aberta e observa o volume da disputa
+
+Expected: Actor B perde apenas R$ 25,00 da própria carteira e Actor A recebe em realtime o aumento do volume A favor sem alteração no próprio saldo.
+
+## Test 5 - Autoexclusão bloqueia nova aposta no backend
+Viewport: mobile
+Covers: PUT /api/responsible, jogo responsável, validação negativa, bloqueio de apostas após autoexclusão
+Description: Verifica que uma proteção configurada pelo usuário é aplicada no servidor e impede nova aposta.
+
+Steps:
+1. Entrar, abrir Jogo responsável e aplicar autoexclusão por 24 horas
+2. Abrir Esportes
+3. Tentar apostar R$ 25,00 DEMO em uma seleção
+
+Expected: Uma mensagem visível informa que a autoexclusão temporária está ativa e nenhuma nova aposta ou débito é registrado.

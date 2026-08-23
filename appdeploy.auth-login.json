@@ -1,0 +1,18 @@
+{
+  "methods": [
+    "google",
+    "apple",
+    "x"
+  ],
+  "headline": "Acesse sua conta DEMO",
+  "subtitle": "Ambiente multiusuário de demonstração. Dinheiro real está desativado.",
+  "style": {
+    "mode": "dark",
+    "accentColor": "#34d399",
+    "backgroundColor": "#07111f",
+    "panelColor": "#0b192b",
+    "textColor": "#f8fafc",
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "borderRadius": 16
+  }
+}
