@@ -6,11 +6,45 @@ async function jsonFetch(url:string, init?:RequestInit){
   if(!r.ok) throw new HttpError(502,`Falha no provedor externo (${r.status})`,'provider_error'); return body;
 }
 
+function mercadoPagoHeaders(){
+  if(!env.MERCADOPAGO_ACCESS_TOKEN) throw new HttpError(503,'Credencial do Mercado Pago pendente.','provider_not_configured');
+  return {'content-type':'application/json',authorization:`Bearer ${env.MERCADOPAGO_ACCESS_TOKEN}`};
+}
+
 export const paymentsProvider={
+  async createCheckoutPreference(input:{amount:number;externalReference:string;email:string;fullName?:string}){
+    if(env.PAYMENT_PROVIDER!=='mercadopago') throw new HttpError(503,'Checkout Pro exige PAYMENT_PROVIDER=mercadopago.','provider_not_configured');
+    const base=env.FRONTEND_URL.replace(/\/$/,'');
+    const names=String(input.fullName||'').trim().split(/\s+/).filter(Boolean);
+    const name=names.shift()||undefined;
+    const surname=names.length?names.join(' '):undefined;
+    const body:any={
+      items:[{
+        id:'wallet-deposit',
+        title:`Depósito em carteira - ${env.BRAND_NAME}`,
+        description:'Crédito de carteira para plataforma de apostas',
+        category_id:'lottery',
+        quantity:1,
+        currency_id:'BRL',
+        unit_price:input.amount,
+        warranty:false
+      }],
+      payer:{email:input.email,name,surname},
+      external_reference:input.externalReference,
+      back_urls:{
+        success:`${base}/wallet?mp=success&deposit=${encodeURIComponent(input.externalReference)}`,
+        pending:`${base}/wallet?mp=pending&deposit=${encodeURIComponent(input.externalReference)}`,
+        failure:`${base}/wallet?mp=failure&deposit=${encodeURIComponent(input.externalReference)}`
+      },
+      auto_return:'approved',
+      notification_url:env.PAYMENT_WEBHOOK_URL,
+      metadata:{deposit_id:input.externalReference,integration:'checkout_pro',industry:'betting'}
+    };
+    return jsonFetch('https://api.mercadopago.com/checkout/preferences',{method:'POST',headers:mercadoPagoHeaders(),body:JSON.stringify(body)});
+  },
   async createPix(input:{amount:number;externalReference:string;email:string}){
     if(env.PAYMENT_PROVIDER==='mercadopago'){
-      if(!env.MERCADOPAGO_ACCESS_TOKEN) throw new HttpError(503,'Credencial do Mercado Pago pendente.','provider_not_configured');
-      return jsonFetch('https://api.mercadopago.com/v1/payments',{method:'POST',headers:{'content-type':'application/json',authorization:`Bearer ${env.MERCADOPAGO_ACCESS_TOKEN}`,'x-idempotency-key':input.externalReference},body:JSON.stringify({transaction_amount:input.amount,description:`Depósito ${env.BRAND_NAME}`,payment_method_id:'pix',payer:{email:input.email},external_reference:input.externalReference,notification_url:env.PAYMENT_WEBHOOK_URL})});
+      return jsonFetch('https://api.mercadopago.com/v1/payments',{method:'POST',headers:{...mercadoPagoHeaders(),'x-idempotency-key':input.externalReference},body:JSON.stringify({transaction_amount:input.amount,description:`Depósito ${env.BRAND_NAME}`,payment_method_id:'pix',payer:{email:input.email},external_reference:input.externalReference,notification_url:env.PAYMENT_WEBHOOK_URL})});
     }
     if(env.PAYMENT_PROVIDER==='custom'){
       if(!env.PAYMENT_CUSTOM_BASE_URL||!env.PAYMENT_CUSTOM_API_KEY) throw new HttpError(503,'Credencial do gateway pendente.','provider_not_configured');
@@ -20,8 +54,7 @@ export const paymentsProvider={
   },
   async getPayment(id:string){
     if(env.PAYMENT_PROVIDER==='mercadopago'){
-      if(!env.MERCADOPAGO_ACCESS_TOKEN) throw new HttpError(503,'Credencial do Mercado Pago pendente.','provider_not_configured');
-      return jsonFetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{headers:{authorization:`Bearer ${env.MERCADOPAGO_ACCESS_TOKEN}`}});
+      return jsonFetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(id)}`,{headers:{authorization:`Bearer ${env.MERCADOPAGO_ACCESS_TOKEN||''}`}});
     }
     if(env.PAYMENT_PROVIDER==='custom'){if(!env.PAYMENT_CUSTOM_BASE_URL||!env.PAYMENT_CUSTOM_API_KEY)throw new HttpError(503,'Credencial do gateway pendente.','provider_not_configured');return jsonFetch(`${env.PAYMENT_CUSTOM_BASE_URL}/payments/${encodeURIComponent(id)}`,{headers:{authorization:`Bearer ${env.PAYMENT_CUSTOM_API_KEY}`}});}
     throw new HttpError(503,'Consulta do gateway ainda não configurada.','provider_not_configured');

@@ -22,10 +22,13 @@ const schema = z.object({
   ENABLE_REAL_MONEY: bool,
   REQUIRE_FEDERAL_LICENSE: bool,
   PAYMENT_PROVIDER: z.enum(['mercadopago','custom','none']).default('none'),
+  MERCADOPAGO_MODE: z.enum(['test','production']).default('test'),
   MERCADOPAGO_ACCESS_TOKEN: z.string().optional(),
+  MERCADOPAGO_PUBLIC_KEY: z.string().optional(),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().optional(),
   PAYMENT_CUSTOM_BASE_URL: z.string().url().optional(),
-  PAYMENT_CUSTOM_API_KEY: z.string().optional(), PAYMENT_CUSTOM_WEBHOOK_SECRET: z.string().optional(),
+  PAYMENT_CUSTOM_API_KEY: z.string().optional(),
+  PAYMENT_CUSTOM_WEBHOOK_SECRET: z.string().optional(),
   PAYMENT_WEBHOOK_URL: z.string().url().optional(),
   MIN_DEPOSIT_BRL: z.coerce.number().default(20),
   MIN_WITHDRAWAL_BRL: z.coerce.number().default(50),
@@ -48,31 +51,35 @@ const schema = z.object({
 
 export const env = schema.parse(process.env);
 
-export const providerStatus = () => ({
-  realMoneyRequested: env.ENABLE_REAL_MONEY,
-  legalIdentityConfigured: Boolean(env.LEGAL_ENTITY_NAME && env.LEGAL_CNPJ),
-  licenseConfigured: Boolean(env.LICENSE_REFERENCE && env.PUBLIC_DOMAIN?.endsWith('.bet.br')),
-  paymentsConfigured: env.PAYMENT_PROVIDER === 'mercadopago'
-    ? Boolean(env.MERCADOPAGO_ACCESS_TOKEN && env.MERCADOPAGO_WEBHOOK_SECRET)
-    : env.PAYMENT_PROVIDER === 'custom'
-      ? Boolean(env.PAYMENT_CUSTOM_BASE_URL && env.PAYMENT_CUSTOM_API_KEY && env.PAYMENT_CUSTOM_WEBHOOK_SECRET)
-      : false,
-  kycConfigured: env.KYC_PROVIDER === 'external' && Boolean(env.KYC_PROVIDER_BASE_URL && env.KYC_PROVIDER_API_KEY && env.KYC_CALLBACK_SECRET),
-  sportsConfigured: env.SPORTS_PROVIDER === 'theoddsapi'
-    ? Boolean(env.SPORTS_DATA_API_KEY)
-    : env.SPORTS_PROVIDER === 'custom'
-      ? Boolean(env.SPORTS_DATA_BASE_URL && env.SPORTS_DATA_API_KEY)
-      : false,
-  casinoConfigured: env.CASINO_PROVIDER === 'aggregator' && Boolean(env.CASINO_PROVIDER_BASE_URL && env.CASINO_PROVIDER_API_KEY && env.CASINO_CALLBACK_SECRET),
-  eventMarketsEnabled: env.ENABLE_EVENT_MARKETS,
-  p2pRealMoneyEnabled: env.ENABLE_P2P_REAL_MONEY
-});
+export const providerStatus = () => {
+  const mercadoPagoCredentials = Boolean(env.MERCADOPAGO_ACCESS_TOKEN && env.MERCADOPAGO_PUBLIC_KEY && env.MERCADOPAGO_WEBHOOK_SECRET);
+  const customCredentials = Boolean(env.PAYMENT_CUSTOM_BASE_URL && env.PAYMENT_CUSTOM_API_KEY && env.PAYMENT_CUSTOM_WEBHOOK_SECRET);
+  const paymentsConfigured = env.PAYMENT_PROVIDER === 'mercadopago' ? mercadoPagoCredentials : env.PAYMENT_PROVIDER === 'custom' ? customCredentials : false;
+  const paymentsProductionReady = env.PAYMENT_PROVIDER === 'mercadopago' ? mercadoPagoCredentials && env.MERCADOPAGO_MODE === 'production' : env.PAYMENT_PROVIDER === 'custom' ? customCredentials : false;
+  return {
+    realMoneyRequested: env.ENABLE_REAL_MONEY,
+    legalIdentityConfigured: Boolean(env.LEGAL_ENTITY_NAME && env.LEGAL_CNPJ),
+    licenseConfigured: Boolean(env.LICENSE_REFERENCE && env.PUBLIC_DOMAIN?.endsWith('.bet.br')),
+    paymentsConfigured,
+    paymentsProductionReady,
+    mercadoPagoMode: env.PAYMENT_PROVIDER === 'mercadopago' ? env.MERCADOPAGO_MODE : null,
+    kycConfigured: env.KYC_PROVIDER === 'external' && Boolean(env.KYC_PROVIDER_BASE_URL && env.KYC_PROVIDER_API_KEY && env.KYC_CALLBACK_SECRET),
+    sportsConfigured: env.SPORTS_PROVIDER === 'theoddsapi'
+      ? Boolean(env.SPORTS_DATA_API_KEY)
+      : env.SPORTS_PROVIDER === 'custom'
+        ? Boolean(env.SPORTS_DATA_BASE_URL && env.SPORTS_DATA_API_KEY)
+        : false,
+    casinoConfigured: env.CASINO_PROVIDER === 'aggregator' && Boolean(env.CASINO_PROVIDER_BASE_URL && env.CASINO_PROVIDER_API_KEY && env.CASINO_CALLBACK_SECRET),
+    eventMarketsEnabled: env.ENABLE_EVENT_MARKETS,
+    p2pRealMoneyEnabled: env.ENABLE_P2P_REAL_MONEY
+  };
+};
 
 export function realMoneyGate() {
   const s = providerStatus();
   const licenseOk = env.REQUIRE_FEDERAL_LICENSE ? s.licenseConfigured : true;
   return {
-    enabled: env.ENABLE_REAL_MONEY && s.legalIdentityConfigured && licenseOk && s.paymentsConfigured && s.kycConfigured && s.sportsConfigured,
+    enabled: env.ENABLE_REAL_MONEY && s.legalIdentityConfigured && licenseOk && s.paymentsProductionReady && s.kycConfigured && s.sportsConfigured,
     ...s,
     licenseRequired: env.REQUIRE_FEDERAL_LICENSE
   };
