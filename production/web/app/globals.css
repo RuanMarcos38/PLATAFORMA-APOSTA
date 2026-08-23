@@ -1,0 +1,1 @@
+@tailwind base;@tailwind components;@tailwind utilities;html{background:#070a0f}body{margin:0;background:#070a0f;color:#fff;font-family:Inter,Arial,sans-serif}*{box-sizing:border-box}.scrollbar-none::-webkit-scrollbar{display:none}.odds{font-variant-numeric:tabular-nums}.safe-bottom{padding-bottom:max(1rem,env(safe-area-inset-bottom))}

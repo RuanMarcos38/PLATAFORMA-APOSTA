@@ -1,0 +1,1 @@
+import Header from '../../components/Header';import BottomNav from '../../components/BottomNav';import Sportsbook from '../../components/Sportsbook';export default function Sports(){return <main className="min-h-screen pb-20 lg:pb-0"><Header/><div className="max-w-[1500px] mx-auto p-4"><Sportsbook/></div><BottomNav/></main>}

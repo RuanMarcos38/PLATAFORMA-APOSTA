@@ -1,0 +1,12 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { env, providerStatus } from './config/env.js';
+import { pool } from './config/db.js';
+import auth from './modules/auth.js'; import kyc from './modules/kyc.js'; import wallet from './modules/wallet.js'; import payments from './modules/payments.js'; import sports from './modules/sports.js'; import responsible from './modules/responsible.js'; import admin from './modules/admin.js';
+const app=express(); app.set('trust proxy',1); app.disable('x-powered-by'); app.use(helmet({contentSecurityPolicy:false})); app.use(cors({origin:env.FRONTEND_URL,credentials:false})); app.use(express.json({limit:'512kb'})); app.use(rateLimit({windowMs:60_000,limit:180,standardHeaders:'draft-8',legacyHeaders:false}));
+app.get('/health',(_req,res)=>res.json({status:'ok',providers:providerStatus()}));app.get('/ready',async(_req,res)=>{try{await pool.query('select 1');res.json({status:'ready'});}catch{res.status(503).json({status:'not_ready'});}});
+app.use('/api/auth',auth);app.use('/api/kyc',kyc);app.use('/api/wallet',wallet);app.use('/api/payments',payments);app.use('/api/sports',sports);app.use('/api/responsible',responsible);app.use('/api/admin',admin);
+app.use((_req,res)=>res.status(404).json({error:'not_found'}));app.use((err:any,_req:any,res:any,_next:any)=>{console.error('unhandled_error',{message:err?.message});res.status(500).json({error:'internal_error'});});
+app.listen(env.API_PORT,()=>console.log(`api_listening:${env.API_PORT}`));

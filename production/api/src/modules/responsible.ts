@@ -1,0 +1,7 @@
+import { Router } from 'express';
+import { pool } from '../config/db.js';
+import { requireAuth, type AuthRequest } from '../middleware/auth.js';
+const r=Router();
+r.get('/',requireAuth,async(req:AuthRequest,res)=>{const q=await pool.query(`SELECT * FROM responsible_limits WHERE user_id=$1`,[req.user!.id]);res.json(q.rows[0])});
+r.put('/',requireAuth,async(req:AuthRequest,res)=>{const current=await pool.query(`SELECT * FROM responsible_limits WHERE user_id=$1`,[req.user!.id]);const c=current.rows[0];const maxStake=Math.min(Number(c.max_stake),Math.max(1,Number(req.body?.maxStake??c.max_stake)));const daily=Math.min(Number(c.daily_deposit_limit),Math.max(0,Number(req.body?.dailyDepositLimit??c.daily_deposit_limit)));const weekly=Math.min(Number(c.weekly_deposit_limit),Math.max(0,Number(req.body?.weeklyDepositLimit??c.weekly_deposit_limit)));let until=c.self_excluded_until;if(req.body?.selfExcludeHours){const h=Math.max(24,Number(req.body.selfExcludeHours));until=new Date(Date.now()+h*3600_000);}await pool.query(`UPDATE responsible_limits SET max_stake=$1,daily_deposit_limit=$2,weekly_deposit_limit=$3,self_excluded_until=$4,updated_at=now() WHERE user_id=$5`,[maxStake,daily,weekly,until,req.user!.id]);if(until)await pool.query(`UPDATE users SET status='self_excluded' WHERE id=$1`,[req.user!.id]);res.json({ok:true,maxStake,dailyDepositLimit:daily,weeklyDepositLimit:weekly,selfExcludedUntil:until});});
+export default r;
