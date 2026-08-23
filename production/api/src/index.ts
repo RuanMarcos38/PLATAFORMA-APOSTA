@@ -20,6 +20,8 @@ app.set('trust proxy',1);
 app.use(helmet({crossOriginResourcePolicy:false}));
 app.use(cors({origin:env.FRONTEND_URL,credentials:true}));
 app.use(rateLimit({windowMs:60_000,limit:180,standardHeaders:'draft-7',legacyHeaders:false}));
+const authLimiter=rateLimit({windowMs:15*60_000,limit:30,standardHeaders:'draft-7',legacyHeaders:false,message:{error:'Muitas tentativas. Aguarde antes de tentar novamente.',code:'rate_limited'}});
+app.use(['/api/auth/login','/api/auth/register'],authLimiter);
 app.use(cookieParser());
 app.use(express.json({limit:'1mb'}));
 app.get('/',(_q:Request,res:Response)=>res.json({name:env.BRAND_NAME,version:'3.0.0',productionGate:realMoneyGate()}));

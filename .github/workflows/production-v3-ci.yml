@@ -36,3 +36,8 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci-validation-only
         run: docker compose config >/dev/null
+      - name: Build production Docker images
+        working-directory: production
+        env:
+          POSTGRES_PASSWORD: ci-validation-only
+        run: docker compose build api web
