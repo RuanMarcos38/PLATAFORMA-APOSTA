@@ -12,6 +12,7 @@ ENV NODE_ENV=production
 COPY package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
 COPY --from=build --chown=node:node /app/dist ./dist
+COPY --chown=node:node db ./db
 RUN chown -R node:node /app
 USER node
 EXPOSE 4000
