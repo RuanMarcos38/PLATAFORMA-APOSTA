@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS users(
 
 CREATE TABLE IF NOT EXISTS refresh_sessions(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
- token_hash text UNIQUE NOT NULL, user_agent text, ip inet, expires_at timestamptz NOT NULL, revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
+ token_hash text UNIQUE NOT NULL, user_agent text, ip inet, expires_at timestamptz NOT NULL, revoked_at timestamptz,
+ session_started_at timestamptz NOT NULL DEFAULT now(), created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS kyc_cases(
@@ -97,6 +98,8 @@ CREATE TABLE IF NOT EXISTS admin_audit(
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), actor_user_id uuid REFERENCES users(id), action text NOT NULL,
  target_type text, target_id text, details jsonb, ip inet, created_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE refresh_sessions ADD COLUMN IF NOT EXISTS session_started_at timestamptz NOT NULL DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON refresh_sessions(user_id,expires_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ledger_wallet_created ON ledger(wallet_id,created_at DESC);
