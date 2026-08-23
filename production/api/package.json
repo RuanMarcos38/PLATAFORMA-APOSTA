@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "migrate": "node dist/scripts/migrate.js",
+    "start": "npm run migrate && node dist/index.js",
     "admin:promote": "node dist/scripts/promote-admin.js"
   },
   "dependencies": {
