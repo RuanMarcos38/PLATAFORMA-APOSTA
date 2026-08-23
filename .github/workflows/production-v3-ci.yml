@@ -1,0 +1,25 @@
+name: Production V3 CI
+on:
+  push:
+    branches: [main, production-complete-v3]
+    paths: ['production/**','.github/workflows/production-v3-ci.yml']
+  pull_request:
+    paths: ['production/**','.github/workflows/production-v3-ci.yml']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
+    defaults:
+      run:
+        working-directory: production/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: production/${{ matrix.app }}/package.json
+      - run: npm install
+      - run: npm run build
