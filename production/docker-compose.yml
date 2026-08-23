@@ -2,26 +2,31 @@ services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: betting
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-betting}
+      POSTGRES_USER: ${POSTGRES_USER:-betting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatoria}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./api/db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d betting"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-betting} -d ${POSTGRES_DB:-betting}"]
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
   redis:
     image: redis:7-alpine
     command: redis-server --appendonly yes
+    restart: unless-stopped
   api:
     build: ./api
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-betting}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-betting}
     depends_on:
       db: { condition: service_healthy }
     ports: ["4000:4000"]
+    restart: unless-stopped
   web:
     build: ./web
     environment:
@@ -29,5 +34,6 @@ services:
       NEXT_PUBLIC_BRAND_NAME: ${NEXT_PUBLIC_BRAND_NAME:-PLATAFORMA APOSTA}
     depends_on: [api]
     ports: ["3000:3000"]
+    restart: unless-stopped
 volumes:
   pgdata:
